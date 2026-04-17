@@ -44,22 +44,37 @@
         </footer>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+        const supabaseUrl = 'https://msvzjxugvptyefusmoar.supabase.co';
+        const supabaseKey = 'sb_publishable_tA8MgkM9g4ZUjfn-posoBQ_hv16dc7z';
+        const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
         const form = document.getElementById('guestbook-form');
         const messageList = document.getElementById('message-list');
 
-        // Load messages from localStorage
-        let messages = JSON.parse(localStorage.getItem('guestbook_messages')) || [];
+        async function renderMessages() {
+            messageList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">메시지를 불러오는 중...</p>';
+            
+            const { data: messages, error } = await _supabase
+                .from('messages')
+                .select('*')
+                .order('date', { ascending: false });
 
-        function renderMessages() {
+            if (error) {
+                console.error('Error fetching messages:', error);
+                messageList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">메시지를 불러오는 데 실패했습니다.</p>';
+                return;
+            }
+
             messageList.innerHTML = '';
             
-            if (messages.length === 0) {
+            if (!messages || messages.length === 0) {
                 messageList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">아직 남겨진 메시지가 없습니다. 첫 번째 메시지를 남겨보세요!</p>';
                 return;
             }
 
-            messages.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(msg => {
+            messages.forEach(msg => {
                 const card = document.createElement('div');
                 card.className = 'message-card';
                 card.innerHTML = `
@@ -73,25 +88,36 @@
             });
         }
 
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const nameInput = document.getElementById('name');
             const messageInput = document.getElementById('message');
+            const btnSubmit = form.querySelector('.btn-submit');
 
-            const newMessage = {
-                name: nameInput.value,
-                content: messageInput.value,
-                date: new Date().toISOString()
-            };
+            const name = nameInput.value;
+            const content = messageInput.value;
 
-            messages.push(newMessage);
-            localStorage.setItem('guestbook_messages', JSON.stringify(messages));
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = '보내는 중...';
+
+            const { error } = await _supabase
+                .from('messages')
+                .insert([{ name, content }]);
+
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = '메시지 남기기';
+
+            if (error) {
+                alert('메시지 저장에 실패했습니다. (SQL 테이블을 생성하셨는지 확인해주세요)');
+                console.error(error);
+                return;
+            }
 
             nameInput.value = '';
             messageInput.value = '';
             
-            renderMessages();
+            await renderMessages();
         });
 
         // Initial render
