@@ -33,8 +33,23 @@
             </section>
 
             <section>
-                <div id="message-list" class="message-list">
-                    <!-- Messages will be rendered here -->
+                <div class="table-container">
+                    <table id="message-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">No.</th>
+                                <th style="width: 150px;">이름</th>
+                                <th>메시지</th>
+                                <th style="width: 200px;">작성일</th>
+                            </tr>
+                        </thead>
+                        <tbody id="message-body">
+                            <!-- Messages will be rendered here -->
+                        </tbody>
+                    </table>
+                    <div id="loading-state" style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                        메시지를 불러오는 중...
+                    </div>
                 </div>
             </section>
         </main>
@@ -51,40 +66,41 @@
         const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
         const form = document.getElementById('guestbook-form');
-        const messageList = document.getElementById('message-list');
+        const messageBody = document.getElementById('message-body');
+        const loadingState = document.getElementById('loading-state');
 
         async function renderMessages() {
-            messageList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">메시지를 불러오는 중...</p>';
+            loadingState.style.display = 'block';
             
             const { data: messages, error } = await _supabase
-                .from('messages')
+                .from('board')
                 .select('*')
                 .order('date', { ascending: false });
 
+            loadingState.style.display = 'none';
+
             if (error) {
                 console.error('Error fetching messages:', error);
-                messageList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">메시지를 불러오는 데 실패했습니다.</p>';
+                messageBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem;">메시지를 불러오는 데 실패했습니다.</td></tr>';
                 return;
             }
 
-            messageList.innerHTML = '';
+            messageBody.innerHTML = '';
             
             if (!messages || messages.length === 0) {
-                messageList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">아직 남겨진 메시지가 없습니다. 첫 번째 메시지를 남겨보세요!</p>';
+                messageBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem;">아직 남겨진 메시지가 없습니다. 첫 번째 메시지를 남겨보세요!</td></tr>';
                 return;
             }
 
-            messages.forEach(msg => {
-                const card = document.createElement('div');
-                card.className = 'message-card';
-                card.innerHTML = `
-                    <div class="message-header">
-                        <span class="message-name">${msg.name}</span>
-                        <span class="message-date">${new Date(msg.date).toLocaleString('ko-KR')}</span>
-                    </div>
-                    <div class="message-content">${msg.content}</div>
+            messages.forEach((msg, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="color: var(--text-secondary);">${messages.length - index}</td>
+                    <td class="tool-name">${msg.name}</td>
+                    <td style="white-space: pre-wrap;">${msg.content}</td>
+                    <td style="color: var(--text-secondary); font-size: 0.85rem;">${new Date(msg.date).toLocaleString('ko-KR')}</td>
                 `;
-                messageList.appendChild(card);
+                messageBody.appendChild(tr);
             });
         }
 
@@ -102,14 +118,14 @@
             btnSubmit.textContent = '보내는 중...';
 
             const { error } = await _supabase
-                .from('messages')
+                .from('board')
                 .insert([{ name, content }]);
 
             btnSubmit.disabled = false;
             btnSubmit.textContent = '메시지 남기기';
 
             if (error) {
-                alert('메시지 저장에 실패했습니다. (SQL 테이블을 생성하셨는지 확인해주세요)');
+                alert('메시지 저장에 실패했습니다. (SQL 테이블 이름이 "board"인지 확인해주세요)');
                 console.error(error);
                 return;
             }
